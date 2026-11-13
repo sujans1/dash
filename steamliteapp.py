@@ -27,7 +27,10 @@ h1,h2,h3{{letter-spacing:-.035em}}h1{{font-size:2.25rem!important;font-weight:80
 [data-testid="stMetric"]{{background:{PANEL};border:1px solid {LINE};padding:14px 16px;border-radius:12px}}
 [data-testid="stMetricLabel"]{{color:{MUTED}!important}}[data-testid="stMetricValue"]{{color:#f1f5f7!important}}
 .kicker{{font-family:'DM Mono',monospace;color:{ACCENT};letter-spacing:.12em;font-size:.72rem;text-transform:uppercase}}
-.small-note{{color:{MUTED};font-size:.82rem}}.verdict{{font-size:1.14rem;line-height:1.6;color:#f2f5f7}}
+.small-note{{color:{MUTED};font-size:.82rem}}
+[data-testid="stMetricLabel"]{{white-space:normal!important;line-height:1.25!important;font-size:.82rem!important}}
+[data-testid="stMetricValue"]{{font-size:clamp(1.25rem,2vw,1.8rem)!important}}
+[data-testid="stDataFrame"]{{width:100%}}.verdict{{font-size:1.14rem;line-height:1.6;color:#f2f5f7}}
 .callout{{background:{PANEL};border:1px solid {LINE};border-left:4px solid {ACCENT};padding:16px 18px;border-radius:10px}}
 hr{{border-color:{LINE}}}.stTabs [data-baseweb="tab"]{{font-weight:650}}
 a{{color:{BLUE}!important}}
@@ -98,7 +101,7 @@ st.sidebar.title('70% by 2030')
 page=st.sidebar.radio('Investigation', pages, index=0)
 st.sidebar.markdown('---')
 lo,hi=int(totals.Year.min()),int(totals.Year.max())
-years=st.sidebar.slider('Historical years', lo, hi, (2010,hi))
+years=st.sidebar.slider('Historical years', lo, hi, (lo,hi))
 st.sidebar.caption('Historical workbook actuals end in 2025. PUCSL quarterly evidence is shown separately through Q2 2026.')
 st.sidebar.markdown('---')
 st.sidebar.caption('Evidence cut-off: 13 November 2026')
@@ -110,7 +113,7 @@ st.markdown('---')
 # Reusable plotting helpers.
 def style(fig, height=390):
     fig.update_layout(template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                      font=dict(family='Manrope', color=TEXT), margin=dict(l=18,r=18,t=58,b=18), height=height,
+                      font=dict(family='Manrope', color=TEXT), margin=dict(l=24,r=24,t=78,b=28), height=height,
                       legend=dict(orientation='h', y=1.12, x=0, title_text=''))
     fig.update_xaxes(gridcolor=LINE, zerolinecolor=LINE)
     fig.update_yaxes(gridcolor=LINE, zerolinecolor=LINE)
@@ -125,14 +128,18 @@ def source_link(label, url):
 
 if page=='The verdict':
     section('01 / Executive verdict','Plausible in the CEB plan. Not yet proven in delivery.', 'The latest full-year actual series ends in 2025; 2026 evidence is quarterly and must not be presented as a full-year share.')
-    st.markdown('<div class="callout verdict"><b>Answer:</b> Sri Lanka can technically reach 70% renewable electricity by 2030 under the CEB average generation scenario. But the margin is thin: on the CEB net-generation forecast, the modelled renewable output is only about 3.2% above the 70% requirement. Project delays, weaker hydro conditions, higher demand or grid constraints could erase that margin. The honest verdict is <b>possible, but not yet securely on track.</b></div>', unsafe_allow_html=True)
+    required30=netgen30*0.70
+    headroom30=renew30-required30
+    st.markdown(f'<div class="callout verdict"><b>Answer:</b> Sri Lanka can technically reach 70% renewable electricity by 2030 under the CEB average generation scenario. But the margin for error is narrow: modelled renewable output of {renew30:,.0f} GWh is only {headroom30:,.0f} GWh ({headroom30/required30:.1%}) above the {required30:,.0f} GWh needed to reach 70% of the separate CEB net-generation forecast. Project delays, weaker hydro conditions, higher demand or grid constraints could erase that margin. The honest verdict is <b>possible, but not yet securely on track.</b></div>', unsafe_allow_html=True)
     st.write('')
-    a,b,c,d=st.columns(4)
+    a,b=st.columns(2)
     a.metric('2025 renewable share', '60.7%', 'PUCSL net-generation basis')
     b.metric('CEB 2030 scenario', f'{share_scenario:.1f}%', 'Planning scenario, not actual')
-    c.metric('Renewable GWh needed in 2030', f'{netgen30*0.70:,.0f}', '70% of CEB net generation')
-    d.metric('CEB average renewable output', f'{renew30:,.0f} GWh', f'{renew30/(netgen30*0.70)-1:+.1%} vs requirement')
-    st.caption('PUCSL 2025 actual net generation: 10,966 GWh renewable / 18,054 GWh total = 60.7%. Your supplied historical workbook gives 60.2% on a different recorded-generation basis. Both are retained, not blended.')
+    c,d=st.columns(2)
+    c.metric('Renewable generation needed in 2030', f'{required30:,.0f} GWh', '70% of CEB net-generation forecast')
+    d.metric('CEB average renewable output', f'{renew30:,.0f} GWh', f'{headroom30:,.0f} GWh above requirement')
+    st.caption('PUCSL 2025 actual net generation: 10,966 GWh renewable / 18,054 GWh total = 60.7%. The supplied historical workbook gives 60.2% on a different recorded-generation basis. Both are retained, not blended.')
+    st.info('Denominator note: CEB’s 72.0% scenario share uses its 22,997 GWh generation-scenario total. The separate demand forecast reports 22,927 GWh net generation; 70% of that is 16,049 GWh, and 16,560 GWh is about 72.2% on this separate basis.')
 
     left,right=st.columns([1.25,1])
     with left:
@@ -140,20 +147,22 @@ if page=='The verdict':
         f=px.area(h,x='Year',y='Renewable_Share_pct',markers=True,title='Historical renewable share — supplied workbook basis')
         f.add_hline(y=70,line_dash='dash',line_color=ACCENT,annotation_text='70% target')
         f.update_yaxes(title='Share of recorded generation (%)',range=[0,100])
-        st.plotly_chart(style(f,390),use_container_width=True)
+        st.plotly_chart(style(f,390),use_container_width=True, config={'displayModeBar':False,'responsive':True})
     with right:
         x=scen[scen.Year.between(2025,2030)]
         f=px.line(x,x='Year',y='Renewable_Share_Avg_RE_pct',markers=True,title='CEB average renewable generation scenario')
         f.add_hline(y=70,line_dash='dash',line_color=ACCENT,annotation_text='70% target')
         f.update_yaxes(title='Share (%)')
-        st.plotly_chart(style(f,390),use_container_width=True)
-    section('THE THREE TESTS','What must go right')
+        st.plotly_chart(style(f,390),use_container_width=True, config={'displayModeBar':False,'responsive':True})
+    st.caption('The annual 2025–2030 points shown are the year-specific values in the CEB generation-scenario workbook; they are not interpolated between endpoints. They remain planning-scenario values, not observed generation.')
+    section('THE THREE TESTS','What must go right','Three conditions determine whether planned capacity becomes dependable renewable electricity.')
     x,y,z=st.columns(3)
     ceb25=float(scen.loc[scen.Year.eq(2025),'Renewables_Avg_RE_GWh'].iloc[0])
-    x.metric('CEB modelled RE output growth',f'{renew30/ceb25-1:+.0%}','CEB 2025–2030 average scenario')
-    y.metric('Renewable capacity in CEB 2030 milestones',f'{int(milestones.loc[milestones.Year.eq(2030),"Total_Renewable_MW"].iloc[0]):,} MW','Includes major hydro + ORE')
-    z.metric('CEB projected 2030 curtailment',f'{float(curt.loc[curt.Year.eq(2030),"Average_Annual_Curtailment_GWh"].iloc[0]):,.0f} GWh','Modelled, not measured actual')
-    st.markdown('**The central investigative finding:** capacity announcements are not electricity delivered. The target depends on commissioning, plant output, hydro conditions, transmission, storage and the ability to absorb variable solar and wind generation.')
+    x.metric('Modelled renewable generation growth',f'{renew30/ceb25-1:+.0%}','CEB average scenario, 2025–2030')
+    y.metric('Planned renewable capacity in 2030',f'{int(milestones.loc[milestones.Year.eq(2030),"Total_Renewable_MW"].iloc[0]):,} MW','Includes major hydro + other renewables')
+    z.metric('CEB-modelled renewable curtailment in 2030',f'{float(curt.loc[curt.Year.eq(2030),"Average_Annual_Curtailment_GWh"].iloc[0]):,.0f} GWh','Planning estimate, not measured actual')
+    st.markdown('**The three tests:** (1) **Project delivery** — are projects commissioned on time? (2) **System flexibility** — can transmission, storage and grid operations absorb solar and wind? (3) **Generation reliability** — can hydro conditions and other renewables sustain enough actual output?')
+    st.caption('ORE means other renewable energy, principally solar, wind, mini-hydro and biomass in the CEB plan. Capacity announcements are not electricity delivered.')
     source_link('PUCSL Annual Report 2025', 'https://www.pucsl.gov.lk/wp-content/uploads/2026/09/Annual-Report-2025_English.pdf')
     source_link('CEB LTGEP 2025–2044', 'https://ceb.lk/front_img/img_reports/1748839124LTGEP-2025-2044-FINAL_c.pdf')
 
@@ -165,18 +174,18 @@ elif page=='Generation reality':
         f=px.line(h,x='Year',y='Renewable_Share_pct',markers=True,title='Renewable share of recorded generation')
         f.add_hline(y=70,line_dash='dash',line_color=ACCENT)
         f.update_yaxes(title='Percent',range=[0,100])
-        st.plotly_chart(style(f),use_container_width=True)
+        st.plotly_chart(style(f),use_container_width=True, config={'displayModeBar':False,'responsive':True})
     with right:
         h['Nonrenewable_GWh']=h['Recorded_Total_Generation_GWh']-h['Renewable_Generation_GWh']
-        f=px.bar(h,x='Year',y=['Renewable_Generation_GWh','Nonrenewable_GWh'],barmode='stack',title='Annual electricity generation')
+        f=px.bar(h,x='Year',y=['Renewable_Generation_GWh','Nonrenewable_GWh'],barmode='stack',title='Annual electricity generation',labels={'Renewable_Generation_GWh':'Renewable generation','Nonrenewable_GWh':'Non-renewable generation','value':'Generation (GWh)'})
         f.update_yaxes(title='GWh')
-        st.plotly_chart(style(f),use_container_width=True)
-    f=px.area(gen[gen.Year.between(*years)],x='Year',y='Generation_GWh',color='Source_Group',title='Generation by source — annual actuals')
+        st.plotly_chart(style(f),use_container_width=True, config={'displayModeBar':False,'responsive':True})
+    f=px.area(gen[gen.Year.between(*years)],x='Year',y='Generation_GWh',color='Source_Group',title='Generation by source — annual actuals',labels={'Generation_GWh':'Generation (GWh)','Source_Group':'Generation source'})
     f.update_yaxes(title='GWh')
-    st.plotly_chart(style(f,420),use_container_width=True)
-    f=px.area(cap[cap.Year.between(*years)],x='Year',y='Capacity_MW',color='Source_Group',title='Installed capacity by source — annual actuals')
+    st.plotly_chart(style(f,420),use_container_width=True, config={'displayModeBar':False,'responsive':True})
+    f=px.area(cap[cap.Year.between(*years)],x='Year',y='Capacity_MW',color='Source_Group',title='Installed capacity by source — annual actuals',labels={'Capacity_MW':'Installed capacity (MW)','Source_Group':'Capacity source'})
     f.update_yaxes(title='MW')
-    st.plotly_chart(style(f,410),use_container_width=True)
+    st.plotly_chart(style(f,410),use_container_width=True, config={'displayModeBar':False,'responsive':True})
     st.info('MW is rated power capacity; GWh is energy generated. A larger installed MW figure does not guarantee the same increase in annual electricity output. Plant factor, hydrology, outages, dispatch and curtailment all matter.')
     st.markdown('**Accounting caution:** the supplied workbook historical series gives 2025 renewable share of 60.2%. PUCSL reports 2025 net generation of 18,054 GWh, including 6,306 GWh major hydro and 4,660 GWh other renewables: 10,966 GWh or 60.7%. Do not splice the two series without reconciling their definitions.')
 
@@ -191,25 +200,25 @@ elif page=='The 2026 pulse':
     with left:
         f=px.bar(q2,x='Technology',y=['Q2_2025_GWh','Q2_2026_GWh'],barmode='group',title='Renewable generation by technology: Q2 2025 vs Q2 2026')
         f.update_yaxes(title='GWh')
-        st.plotly_chart(style(f,430),use_container_width=True)
+        st.plotly_chart(style(f,430),use_container_width=True, config={'displayModeBar':False,'responsive':True})
     with right:
         f=px.bar(q2.sort_values('Change_pct'),x='Change_pct',y='Technology',orientation='h',color='Change_pct',color_continuous_scale=['#d66e68','#d6b66d','#55c99a'],title='Year-on-year change by technology')
         f.update_xaxes(title='Change (%)')
         f.update_layout(coloraxis_showscale=False)
-        st.plotly_chart(style(f,430),use_container_width=True)
+        st.plotly_chart(style(f,430),use_container_width=True, config={'displayModeBar':False,'responsive':True})
     st.markdown('**What happened?** Major hydro fell 37% year-on-year and mini-hydro fell 25%. Rooftop solar rose 42% and IPP solar rose 124%, but those gains did not offset the hydro decline. The total renewable generation fall was 16.2%.')
     st.caption('The Q2 2025 technology values in the regulator table are rounded to whole GWh; their sum (2,966 GWh) differs by 1 GWh from the report headline total (2,965 GWh). The percentage comparison uses the published headline totals.')
     st.warning('Source-quality note: the PUCSL report’s Q1-vs-Q2 chart labels and accompanying sentence appear inconsistent (the plotted values imply an increase, while the sentence says a decrease). This dashboard therefore avoids using the quarter-on-quarter comparison. The Q2-vs-Q2 2025 comparison is supported by the technology table and reported total.')
     section('FIRST HALF OF 2026','Renewables still contribute a large energy volume')
     f=px.bar(h1.sort_values('Jan_Jun_2026_GWh',ascending=False),x='Technology',y='Jan_Jun_2026_GWh',color='Technology',title='Cumulative renewable generation, 1 January–30 June 2026')
     f.update_yaxes(title='GWh')
-    st.plotly_chart(style(f,390),use_container_width=True)
+    st.plotly_chart(style(f,390),use_container_width=True, config={'displayModeBar':False,'responsive':True})
     section('CAPACITY SNAPSHOT','Installed renewable capacity at 30 June 2026')
     left,right=st.columns([1,1])
     with left:
         f=px.bar(cap26.sort_values('Capacity_MW'),x='Capacity_MW',y='Technology',orientation='h',title='PUCSL installed renewable capacity by technology')
         f.update_xaxes(title='MW')
-        st.plotly_chart(style(f,410),use_container_width=True)
+        st.plotly_chart(style(f,410),use_container_width=True, config={'displayModeBar':False,'responsive':True})
     with right:
         st.metric('Renewable capacity reported by PUCSL',f'{cap26.Capacity_MW.sum():,.0f} MW','Includes major hydro + NCRE')
         st.markdown('The Q2 report lists 1,527 MW major hydro and approximately 3,675 MW NCRE. Rooftop solar is a substantial component. Capacity is a stock measure; quarterly GWh is an output measure.')
@@ -234,7 +243,7 @@ elif page=='The 2030 maths':
     f=go.Figure()
     f.add_trace(go.Bar(x=['Required for target','CEB average scenario output','Output at selected delivery rate'],y=[required,renew30,delivered],marker_color=[ACCENT,BLUE,GREEN]))
     f.update_layout(title='2030 renewable electricity: requirement vs scenario',yaxis_title='GWh')
-    st.plotly_chart(style(f,370),use_container_width=True)
+    st.plotly_chart(style(f,370),use_container_width=True, config={'displayModeBar':False,'responsive':True})
     st.markdown('**Break-even delivery:** the 2030 CEB average renewable generation scenario is 16,560 GWh. At the CEB demand forecast net generation of 22,927 GWh, 70% requires 16,049 GWh. Sri Lanka therefore needs to deliver about **96.9% of the CEB average renewable output assumption** if total generation stays at that level.')
     scenarios=[]
     for pct in [100,97,95,90,85,80]:
@@ -250,17 +259,16 @@ elif page=='Project delivery tracker':
     a,b,c=st.columns(3)
     a.metric('Projects in Project_Tables.xlsx',f'{len(projects)}')
     b.metric('Listed pipeline capacity',f'{total_mw:,.0f} MW')
-    planning_capacity_mw = projects.loc[
-        projects.Source_Stage.str.contains("planning", case=False), "Capacity (MW)"
-    ].sum()
-    c.metric('Capacity in source planning tables',f'{planning_capacity_mw:,.0f} MW')
+    c.metric('Capacity in source planning tables',f'{projects.loc[projects.Source_Stage.str.contains("planning",case=False),'Capacity (MW)'].sum():,.0f} MW')
     st.markdown('**Source-table grouping:** Table 1 = under construction; Table 2 = under development; Tables 3–5 = planning. These are the workbook’s labels and should not be mistaken for current independent verification.')
     stages=sorted(projects.Source_Stage.unique())
     chosen=st.multiselect('Filter by source-table stage',stages,default=stages)
     pview=projects[projects.Source_Stage.isin(chosen)].copy()
-    f=px.bar(pview.groupby(['Source_Table','Source_Stage'],as_index=False)['Capacity (MW)'].sum(),x='Source_Table',y='Capacity (MW)',color='Source_Stage',title='Listed capacity by source table')
+    stage_labels={'Source label: under construction':'Under construction','Source label: under development':'Under development','Source label: planning':'Planning'}
+    pview['Stage for chart']=pview['Source_Stage'].map(stage_labels).fillna(pview['Source_Stage'])
+    f=px.bar(pview.groupby(['Source_Table','Stage for chart'],as_index=False)['Capacity (MW)'].sum(),x='Source_Table',y='Capacity (MW)',color='Stage for chart',title='Listed capacity by source table')
     f.update_yaxes(title='MW')
-    st.plotly_chart(style(f,340),use_container_width=True)
+    st.plotly_chart(style(f,340),use_container_width=True, config={'displayModeBar':False,'responsive':True})
     # Add latest known evidence as an additional column only for clearly matched identities.
     latest_map={
         'siyabalaanduwa':'Siyabalanduwa / Rividhanavi solar',
@@ -331,27 +339,27 @@ elif page=='Grid readiness':
     with left:
         f=px.line(ore,x='Year',y=['Solar_Cumulative_MW','Wind_Cumulative_MW','Mini_Hydro_Cumulative_MW','Biomass_Cumulative_MW'],markers=True,title='CEB planned cumulative ORE capacity')
         f.update_yaxes(title='MW')
-        st.plotly_chart(style(f),use_container_width=True)
+        st.plotly_chart(style(f),use_container_width=True, config={'displayModeBar':False,'responsive':True})
     with right:
         f=px.bar(additions,x='Year',y=['ORE_MW','BESS_MW','PSPP_MW'],title='CEB annual additions: ORE and storage')
         f.update_yaxes(title='MW')
-        st.plotly_chart(style(f),use_container_width=True)
+        st.plotly_chart(style(f),use_container_width=True, config={'displayModeBar':False,'responsive':True})
     section('CURTAILMENT','The CEB plan already assumes renewable energy will be curtailed')
     f=go.Figure()
     f.add_trace(go.Bar(x=curt.Year,y=curt.Average_Annual_Curtailment_GWh,name='Average annual curtailment'))
     f.add_trace(go.Scatter(x=curt.Year,y=curt.Curtailment_pct_Total_Generation,name='Share of total generation',yaxis='y2',mode='lines+markers'))
     f.update_layout(title='CEB projected renewable curtailment',yaxis=dict(title='GWh'),yaxis2=dict(title='% of total generation',overlaying='y',side='right'))
-    st.plotly_chart(style(f,400),use_container_width=True)
-    section('DEMAND','Peak demand is rising faster than some forecasts anticipated')
+    st.plotly_chart(style(f,400),use_container_width=True, config={'displayModeBar':False,'responsive':True})
+    section('DEMAND',"2025 peak demand exceeded CEB’s forecast",'A one-year actual-versus-forecast comparison; it does not by itself establish a multi-year trend.')
     left,right=st.columns(2)
     with left:
         f=px.line(peak,x='Year',y=['Day_Max_Demand_MW','Night_Max_Demand_MW'],markers=True,title='Actual day and night maximum demand')
         f.update_yaxes(title='MW')
-        st.plotly_chart(style(f),use_container_width=True)
+        st.plotly_chart(style(f),use_container_width=True, config={'displayModeBar':False,'responsive':True})
     with right:
         f=px.line(forecast,x='Year',y=['Day_Peak_MW','Night_Peak_MW'],markers=True,title='CEB forecast day and night peak')
         f.update_yaxes(title='MW')
-        st.plotly_chart(style(f),use_container_width=True)
+        st.plotly_chart(style(f),use_container_width=True, config={'displayModeBar':False,'responsive':True})
     p25=peak[peak.Year.eq(2025)].iloc[0]; fc25=forecast[forecast.Year.eq(2025)].iloc[0]
     st.markdown(f"2025 actual day peak was **{p25.Day_Max_Demand_MW:,.0f} MW** versus CEB's forecast **{fc25.Day_Peak_MW:,.0f} MW**; actual night peak was **{p25.Night_Max_Demand_MW:,.0f} MW** versus forecast **{fc25.Night_Peak_MW:,.0f} MW**. Demand forecasting and firm capacity matter alongside annual renewable GWh.")
     section('STORAGE IS NOT GENERATION','Track MW and MWh separately')
@@ -364,7 +372,8 @@ else:
     section('08 / SOURCES & METHODOLOGY','An evidence trail, not a black box.')
     st.markdown('### Source hierarchy')
     st.markdown('1. Official regulator, CEB, Ministry, SLSEA, Gazette, Cabinet and CSE disclosures.\n2. Project developer and lender disclosures.\n3. Credible Sri Lankan business press when primary evidence is unavailable; labelled secondary.')
-    st.dataframe(sources,use_container_width=True,hide_index=True,column_config={'URL':st.column_config.LinkColumn('Source URL')})
+    st.dataframe(sources,use_container_width=True,hide_index=True,column_config={'URL':st.column_config.LinkColumn('Open source',display_text='Open source')})
+    st.caption('Check each source’s publication or reporting date before relying on a project status. A source link is provided for direct verification.')
     st.markdown('### Data definitions and caveats')
     notes=[
         ('Historical generation','The supplied combined workbook provides annual source-level generation through 2025. Its recorded renewable share is calculated from major hydro plus recorded NCRE categories. Source classification may change over the long historical period.'),
@@ -380,7 +389,8 @@ else:
     for head,body in notes:
         with st.expander(head): st.write(body)
     st.markdown('### Important calculations')
-    st.code('Renewable share (%) = renewable generation (GWh) / total generation (GWh) × 100\nRenewable GWh required = forecast total generation (GWh) × target share (%)\nProject pipeline MW ≠ commissioned MW ≠ annual renewable generation GWh')
+    st.code('Renewable share (%) = (renewable generation (GWh) / total generation (GWh)) × 100\n70% threshold (GWh) = forecast total generation (GWh) × 0.70\nGeneration headroom (GWh) = expected renewable generation − 70% threshold\nProject pipeline MW ≠ commissioned MW ≠ annual renewable generation GWh')
+    st.info('The 2030 feasibility calculator uses the separate CEB net-generation forecast as its denominator. The CEB scenario percentage is displayed on the scenario’s own total-generation denominator. These bases are not silently mixed.')
     st.markdown('### Files bundled')
     for name in ['Sri_Lanka_Electricity_Actuals_and_CEB_Plan_Combined.xlsx','Project_Tables.xlsx','Project_and_PPA_Approvals.xlsx','Renewable_Energy_Applications.xlsx','CEB_NCRE_and_Installed_Capacity_v3.xlsx','ceb new.xlsx']:
         st.write('• '+name)
